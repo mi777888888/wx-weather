@@ -1,4 +1,3 @@
-import json
 import os
 from datetime import date, datetime, timedelta
 
@@ -9,13 +8,45 @@ from wechatpy.client.api import WeChatMessage
 
 
 def clean_env(v: str) -> str:
-    """去空格 + 去一层首尾引号（避免 secrets 里误存 '\"xxx\"'）"""
+    """去空格 + 去一层首尾引号（避免 secrets/env 里误存 '\"xxx\"'）"""
     if v is None:
         return ""
     v = str(v).strip()
     if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
         v = v[1:-1].strip()
     return v
+
+
+def split_user_ids(raw: str):
+    """支持 ; 或 , 分隔"""
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    if ";" in raw:
+        parts = [x.strip() for x in raw.split(";")]
+    elif "," in raw:
+        parts = [x.strip() for x in raw.split(",")]
+    else:
+        parts = [raw]
+    return [p for p in parts if p]
+
+
+def mask_key(k: str) -> str:
+    if not k:
+        return "***"
+    if len(k) < 8:
+        return "***"
+    return f"{k[:4]}***{k[-4:]}"
+
+
+def ensure_https(host: str) -> str:
+    """host 允许传 ny65... 或 https://ny65...，这里统一补 https://"""
+    host = clean_env(host)
+    if not host:
+        return ""
+    if host.startswith("http://") or host.startswith("https://"):
+        return host
+    return "https://" + host
 
 
 # ----------------------- 从环境变量读取配置 -----------------------
@@ -33,36 +64,42 @@ template_id_night = clean_env(os.getenv("TEMPLATE_ID_NIGHT", "8GKqU099P3IdOEkOBa
 name = clean_env(os.getenv("NAME", "小高"))
 city = clean_env(os.getenv("CITY", "北京"))
 
-# ✅ 官方 Host（你也可以在 workflow env 里覆盖）
-QWEATHER_GEO_HOST = clean_env(os.getenv("QWEATHER_GEO_HOST", "https://geoapi.qweather.com"))
-QWEATHER_API_HOST = clean_env(os.getenv("QWEATHER_API_HOST", "https://devapi.qweather.com"))
+# ✅ 固定使用你提供的 API Host（也允许通过 env 覆盖）
+DEFAULT_HOST = "ny65nnwt9x.re.qweatherapi.com"
+QWEATHER_HOST = ensure_https(os.getenv("QWEATHER_HOST", DEFAULT_HOST))
 
 required = {
-    "APP_KEY": appKey,
-    "APP_ID": app_id,
-    "APP_SECRET": app_secret,
-    "USER_IDS": user_ids,
-    "TEMPLATE_ID_DAY": template_id_day,
-    "TEMPLATE_ID_NIGHT": template_id_night,
+    "QWEATHER_HOST": QWEATHER_HOST,
+    "APP_KEY": APP_KEY,
+    "APP_ID": APP_ID,
+    "APP_SECRET": APP_SECRET,
+    "USER_IDS": USER_IDS,
+    "TEMPLATE_ID_DAY": TEMPLATE_ID_DAY,
+    "TEMPLATE_ID_NIGHT": TEMPLATE_ID_NIGHT,
 }
 missing = [k for k, v in required.items() if not v]
 if missing:
     raise RuntimeError(f"Missing env vars: {', '.join(missing)}")
 
-
-# ----------------------- 当前时间 -----------------------
 today = datetime.now()
 today_date = today.strftime("%Y年%m月%d日")
 
 
 def http_get_json(url: str, params: dict, timeout: int = 15) -> dict:
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    """
+    和风鉴权：通常 query 参数 key=xxx 即可。
+    有些环境也支持 header X-QW-Api-Key，这里一起带上以提高兼容性。
+    """
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-QW-Api-Key": APP_KEY,
+    }
     resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+
     if resp.status_code != 200:
         safe_params = dict(params)
-        if "key" in safe_params and safe_params["key"]:
-            k = str(safe_params["key"])
-            safe_params["key"] = (k[:4] + "***" + k[-4:]) if len(k) >= 8 else "***"
+        if "key" in safe_params:
+            safe_params["key"] = mask_key(str(safe_params["key"]))
         print("---- HTTP ERROR ----")
         print("Request URL:", resp.url)
         print("Request params(safe):", safe_params)
@@ -70,10 +107,12 @@ def http_get_json(url: str, params: dict, timeout: int = 15) -> dict:
         print("Response Text:", resp.text)
         print("--------------------")
         raise RuntimeError(f"HTTP {resp.status_code} for {url}")
+
     return resp.json()
 
 
 def days_until_spring_festival(year=None):
+    """距离下一个春节还有多少天"""
     if year is None:
         year = datetime.now().year
     spring_festival_lunar = LunarDate(year, 1, 1)
@@ -86,12 +125,14 @@ def days_until_spring_festival(year=None):
 
 
 def get_count():
-    delta = today - datetime.strptime(start_date, "%Y-%m-%d")
+    """在一起多天计算"""
+    delta = today - datetime.strptime(START_DATE, "%Y-%m-%d")
     return delta.days + 1
 
 
 def get_birthday():
-    month_day = birthday[5:]
+    """距离下次生日还有多少天"""
+    month_day = BIRTHDAY[5:]
     nxt = datetime.strptime(f"{date.today().year}-{month_day}", "%Y-%m-%d")
     if nxt < datetime.now():
         nxt = nxt.replace(year=nxt.year + 1)
@@ -99,46 +140,41 @@ def get_birthday():
 
 
 def get_words():
+    """彩虹屁接口：失败重试"""
     words = requests.get("https://api.shadiao.pro/chp", timeout=15)
     if words.status_code != 200:
         return get_words()
     text = words.json().get("data", {}).get("text", "")
+
     chunk_size = 20
     split_notes = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     note1, note2, note3, note4, note5 = (split_notes + [""] * 5)[:5]
     return note1, note2, note3, note4, note5
 
 
-def split_user_ids(raw: str):
-    raw = (raw or "").strip()
-    if ";" in raw:
-        parts = [x.strip() for x in raw.split(";")]
-    elif "," in raw:
-        parts = [x.strip() for x in raw.split(",")]
-    else:
-        parts = [raw]
-    return [p for p in parts if p]
-
-
 # ----------------------- 和风：城市 -> location id -----------------------
-print({"key": "****", "location": city})
+print({"key": "****", "location": CITY})
+print("Using QWEATHER_HOST =", QWEATHER_HOST)
+print("APP_KEY masked =", mask_key(APP_KEY))
 
-geo_params = {"key": appKey, "location": city}
-geo_url = f"{QWEATHER_GEO_HOST}/geo/v2/city/lookup"
+geo_url = f"{QWEATHER_HOST}/geo/v2/city/lookup"
+geo_params = {"location": CITY, "key": APP_KEY}
 geo_json = http_get_json(geo_url, geo_params)
+
+if "location" not in geo_json or not geo_json["location"]:
+    raise RuntimeError(f"Geo lookup returned unexpected json: {geo_json}")
 
 city_id = geo_json["location"][0]["id"]
 
 # ----------------------- 和风：实时天气 -----------------------
-api_params = {"key": appKey, "location": city_id}
-
-now_url = f"{QWEATHER_API_HOST}/v7/weather/now"
+now_url = f"{QWEATHER_HOST}/v7/weather/now"
+api_params = {"location": city_id, "key": APP_KEY}
 realtime_json = http_get_json(now_url, api_params)
 realtime = realtime_json["now"]
 now_temperature = realtime["temp"] + "℃" + realtime["text"]
 
 # ----------------------- 和风：3天天气 -----------------------
-forecast_url = f"{QWEATHER_API_HOST}/v7/weather/3d"
+forecast_url = f"{QWEATHER_HOST}/v7/weather/3d"
 day_forecast_json = http_get_json(forecast_url, api_params)
 
 # 今天
@@ -167,27 +203,30 @@ day_forecast_tomorrow_windScaleDay = day_forecast_tomorrow["windScaleDay"]
 
 
 if __name__ == "__main__":
-    client = WeChatClient(app_id, app_secret)
+    # 微信客户端
+    client = WeChatClient(APP_ID, APP_SECRET)
     wm = WeChatMessage(client)
 
+    # 彩虹屁
     note1, note2, note3, note4, note5 = get_words()
 
+    # 北京时间判断：>15 点发送“明天”并使用夜间模板
     now_utc = datetime.utcnow()
     beijing_time = now_utc + timedelta(hours=8)
     hour_of_day = beijing_time.hour
 
     strDay = "today"
-    template_to_use = template_id_day
+    template_to_use = TEMPLATE_ID_DAY
     if hour_of_day > 15:
         strDay = "tomorrow"
-        template_to_use = template_id_night
+        template_to_use = TEMPLATE_ID_NIGHT
 
     print("当前时间：" + str(beijing_time) + " 即将推送：" + strDay + " 信息")
 
     data = {
-        "name": {"value": name},
+        "name": {"value": NAME},
         "today": {"value": today_date},
-        "city": {"value": city},
+        "city": {"value": CITY},
         "weather": {"value": globals()[f"day_forecast_{strDay}_weather"]},
         "now_temperature": {"value": now_temperature},
         "min_temperature": {"value": globals()[f"day_forecast_{strDay}_temperature_min"]},
@@ -208,6 +247,7 @@ if __name__ == "__main__":
         "note5": {"value": note5},
     }
 
-    for uid in split_user_ids(user_ids):
+    # 发送模板消息
+    for uid in split_user_ids(USER_IDS):
         res = wm.send_template(uid, template_to_use, data)
         print(res)
