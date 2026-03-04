@@ -26,6 +26,7 @@ jobs:
       NAME: ${{ secrets.NAME }}
       BIRTHDAY: ${{ secrets.BIRTHDAY }}
       CITY: ${{ secrets.CITY }}
+      # QWEATHER_HOST: ny65nnwt9x.re.qweatherapi.com
       # 可选：如果你希望显式指定和风 host
       QWEATHER_HOST: ${{ secrets.QWEATHER_HOST }}
 
