@@ -33,8 +33,9 @@ template_id_night = clean_env(os.getenv("TEMPLATE_ID_NIGHT", "8GKqU099P3IdOEkOBa
 name = clean_env(os.getenv("NAME", "小高"))
 city = clean_env(os.getenv("CITY", "北京"))
 
-# 和风 Host：默认用你之前能访问到的专属 host；也允许你用 env 覆盖
-qweather_host = clean_env(os.getenv("QWEATHER_HOST", "https://n93jpfeh9u.re.qweatherapi.com"))
+# ✅ 官方 Host（你也可以在 workflow env 里覆盖）
+QWEATHER_GEO_HOST = clean_env(os.getenv("QWEATHER_GEO_HOST", "https://geoapi.qweather.com"))
+QWEATHER_API_HOST = clean_env(os.getenv("QWEATHER_API_HOST", "https://devapi.qweather.com"))
 
 required = {
     "APP_KEY": appKey,
@@ -72,52 +73,6 @@ def http_get_json(url: str, params: dict, timeout: int = 15) -> dict:
     return resp.json()
 
 
-# ----------------------- 和风：城市 -> location id -----------------------
-params = {"key": appKey, "location": city}
-print({"key": "****", "location": city})  # 不泄露 key
-
-geo_url = f"{qweather_host}/geo/v2/city/lookup"
-geo_json = http_get_json(geo_url, params)
-
-city_id = geo_json["location"][0]["id"]
-params["location"] = city_id
-
-# ----------------------- 和风：实时天气 -----------------------
-now_url = f"{qweather_host}/v7/weather/now"
-realtime_json = http_get_json(now_url, params)
-realtime = realtime_json["now"]
-now_temperature = realtime["temp"] + "℃" + realtime["text"]
-
-# ----------------------- 和风：3天天气 -----------------------
-forecast_url = f"{qweather_host}/v7/weather/3d"
-day_forecast_json = http_get_json(forecast_url, params)
-
-# ----------------------- 今天 -----------------------
-day_forecast_today = day_forecast_json["daily"][0]
-day_forecast_today_sunrise = day_forecast_today["sunrise"]
-day_forecast_today_sunset = day_forecast_today["sunset"]
-day_forecast_today_weather = day_forecast_today["textDay"]
-day_forecast_today_temperature_min = day_forecast_today["tempMin"] + "℃"
-day_forecast_today_temperature_max = day_forecast_today["tempMax"] + "℃"
-day_forecast_today_night = day_forecast_today["textNight"]
-day_forecast_today_windDirDay = day_forecast_today["windDirDay"]
-day_forecast_today_windDirNight = day_forecast_today["windDirNight"]
-day_forecast_today_windScaleDay = day_forecast_today["windScaleDay"]
-
-# ----------------------- 明天（修复：不要再用 today 的字段） -----------------------
-day_forecast_tomorrow = day_forecast_json["daily"][1]
-day_forecast_tomorrow_weather = day_forecast_tomorrow["textDay"]
-day_forecast_tomorrow_sunrise = day_forecast_tomorrow["sunrise"]
-day_forecast_tomorrow_sunset = day_forecast_tomorrow["sunset"]
-day_forecast_tomorrow_temperature_min = day_forecast_tomorrow["tempMin"] + "℃"
-day_forecast_tomorrow_temperature_max = day_forecast_tomorrow["tempMax"] + "℃"
-day_forecast_tomorrow_night = day_forecast_tomorrow["textNight"]
-day_forecast_tomorrow_windDirDay = day_forecast_tomorrow["windDirDay"]
-day_forecast_tomorrow_windDirNight = day_forecast_tomorrow["windDirNight"]
-day_forecast_tomorrow_windScaleDay = day_forecast_tomorrow["windScaleDay"]
-
-
-# 距离春节还有多少天
 def days_until_spring_festival(year=None):
     if year is None:
         year = datetime.now().year
@@ -130,13 +85,11 @@ def days_until_spring_festival(year=None):
     return days_until
 
 
-# 在一起多天计算
 def get_count():
     delta = today - datetime.strptime(start_date, "%Y-%m-%d")
     return delta.days + 1
 
 
-# 生日计算
 def get_birthday():
     month_day = birthday[5:]
     nxt = datetime.strptime(f"{date.today().year}-{month_day}", "%Y-%m-%d")
@@ -145,7 +98,6 @@ def get_birthday():
     return (nxt - today).days
 
 
-# 彩虹屁接口
 def get_words():
     words = requests.get("https://api.shadiao.pro/chp", timeout=15)
     if words.status_code != 200:
@@ -166,6 +118,52 @@ def split_user_ids(raw: str):
     else:
         parts = [raw]
     return [p for p in parts if p]
+
+
+# ----------------------- 和风：城市 -> location id -----------------------
+print({"key": "****", "location": city})
+
+geo_params = {"key": appKey, "location": city}
+geo_url = f"{QWEATHER_GEO_HOST}/geo/v2/city/lookup"
+geo_json = http_get_json(geo_url, geo_params)
+
+city_id = geo_json["location"][0]["id"]
+
+# ----------------------- 和风：实时天气 -----------------------
+api_params = {"key": appKey, "location": city_id}
+
+now_url = f"{QWEATHER_API_HOST}/v7/weather/now"
+realtime_json = http_get_json(now_url, api_params)
+realtime = realtime_json["now"]
+now_temperature = realtime["temp"] + "℃" + realtime["text"]
+
+# ----------------------- 和风：3天天气 -----------------------
+forecast_url = f"{QWEATHER_API_HOST}/v7/weather/3d"
+day_forecast_json = http_get_json(forecast_url, api_params)
+
+# 今天
+day_forecast_today = day_forecast_json["daily"][0]
+day_forecast_today_sunrise = day_forecast_today["sunrise"]
+day_forecast_today_sunset = day_forecast_today["sunset"]
+day_forecast_today_weather = day_forecast_today["textDay"]
+day_forecast_today_temperature_min = day_forecast_today["tempMin"] + "℃"
+day_forecast_today_temperature_max = day_forecast_today["tempMax"] + "℃"
+day_forecast_today_night = day_forecast_today["textNight"]
+day_forecast_today_windDirDay = day_forecast_today["windDirDay"]
+day_forecast_today_windDirNight = day_forecast_today["windDirNight"]
+day_forecast_today_windScaleDay = day_forecast_today["windScaleDay"]
+
+# 明天（修复：不要再用 today 的字段）
+day_forecast_tomorrow = day_forecast_json["daily"][1]
+day_forecast_tomorrow_weather = day_forecast_tomorrow["textDay"]
+day_forecast_tomorrow_sunrise = day_forecast_tomorrow["sunrise"]
+day_forecast_tomorrow_sunset = day_forecast_tomorrow["sunset"]
+day_forecast_tomorrow_temperature_min = day_forecast_tomorrow["tempMin"] + "℃"
+day_forecast_tomorrow_temperature_max = day_forecast_tomorrow["tempMax"] + "℃"
+day_forecast_tomorrow_night = day_forecast_tomorrow["textNight"]
+day_forecast_tomorrow_windDirDay = day_forecast_tomorrow["windDirDay"]
+day_forecast_tomorrow_windDirNight = day_forecast_tomorrow["windDirNight"]
+day_forecast_tomorrow_windScaleDay = day_forecast_tomorrow["windScaleDay"]
 
 
 if __name__ == "__main__":
