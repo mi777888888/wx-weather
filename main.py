@@ -69,7 +69,7 @@ QWEATHER_HOST = ensure_https(clean_env(os.getenv("QWEATHER_HOST")) or DEFAULT_HO
 
 # 必填校验（这里不会再引用未定义变量）
 required = {
-    "QWEATHER_HOST": "ny65nnwt9x.re.qweatherapi.com",
+    "QWEATHER_HOST": QWEATHER_HOST,
     "APP_KEY": "cb4b121913484d0090d506a70455945e",
     "APP_ID": "wx0b974221d291ec14",
     "APP_SECRET": "066e9c8dedb348c51315ac8499ac8c7a",
