@@ -48,52 +48,47 @@ def mask_key(k: str) -> str:
     return f"{k[:4]}***{k[-4:]}"
 
 
-# ----------------------- 从环境变量读取配置 -----------------------
-start_date = clean_env(os.getenv("START_DATE", "2025-06-04"))
-appKey = clean_env(os.getenv("APP_KEY", "cb4b121913484d0090d506a70455945e"))
-birthday = clean_env(os.getenv("BIRTHDAY", "2025-06-04"))
+# ----------------------- 直接从 env 读取并清洗（避免变量未定义） -----------------------
+START_DATE = clean_env(os.getenv("START_DATE", "2025-06-04"))
+APP_KEY = clean_env(os.getenv("APP_KEY"))
+BIRTHDAY = clean_env(os.getenv("BIRTHDAY", "2025-06-04"))
 
-app_id = clean_env(os.getenv("APP_ID", "wx0b974221d291ec14"))
-app_secret = clean_env(os.getenv("APP_SECRET", "066e9c8dedb348c51315ac8499ac8c7a"))
+APP_ID = clean_env(os.getenv("APP_ID"))
+APP_SECRET = clean_env(os.getenv("APP_SECRET"))
 
-user_ids = clean_env(os.getenv("USER_IDS", "oJL-12FttD-OPz0dCc_QOR1jk7Gw"))
-template_id_day = clean_env(os.getenv("TEMPLATE_ID_DAY", "he0mUm-aBE9UWzUmYzMGPCF_yyuPaD8keP26z7gt6Ho"))
-template_id_night = clean_env(os.getenv("TEMPLATE_ID_NIGHT", "8GKqU099P3IdOEkOBa24CgpTFETx3WtwCUrUGDgNJ7Q"))
+USER_IDS = clean_env(os.getenv("USER_IDS"))
+TEMPLATE_ID_DAY = clean_env(os.getenv("TEMPLATE_ID_DAY"))
+TEMPLATE_ID_NIGHT = clean_env(os.getenv("TEMPLATE_ID_NIGHT"))
 
-name = clean_env(os.getenv("NAME", "小高"))
-city = clean_env(os.getenv("CITY", "北京"))
+NAME = clean_env(os.getenv("NAME", "小高"))
+CITY = clean_env(os.getenv("CITY", "北京"))
 
-# ✅ 你提供的 API Host（可用 env 覆盖）
+# ✅ 固定使用你提供的 API Host（也允许通过 env 覆盖）
 DEFAULT_HOST = "ny65nnwt9x.re.qweatherapi.com"
 QWEATHER_HOST = ensure_https(os.getenv("QWEATHER_HOST", DEFAULT_HOST))
 
+# 必填校验（这里不会再引用未定义变量）
 required = {
-    "QWEATHER_HOST": QWEATHER_HOST,
-    "APP_KEY": APP_KEY,
-    "APP_ID": APP_ID,
-    "APP_SECRET": APP_SECRET,
-    "USER_IDS": USER_IDS,
-    "TEMPLATE_ID_DAY": TEMPLATE_ID_DAY,
-    "TEMPLATE_ID_NIGHT": TEMPLATE_ID_NIGHT,
+    "QWEATHER_HOST": "ny65nnwt9x.re.qweatherapi.com",
+    "APP_KEY": "cb4b121913484d0090d506a70455945e",
+    "APP_ID": "wx0b974221d291ec14",
+    "APP_SECRET": "066e9c8dedb348c51315ac8499ac8c7a",
+    "USER_IDS": "oJL-12FttD-OPz0dCc_QOR1jk7Gw",
+    "TEMPLATE_ID_DAY": "he0mUm-aBE9UWzUmYzMGPCF_yyuPaD8keP26z7gt6Ho",
+    "TEMPLATE_ID_NIGHT": "8GKqU099P3IdOEkOBa24CgpTFETx3WtwCUrUGDgNJ7Q",
 }
 missing = [k for k, v in required.items() if not v]
 if missing:
     raise RuntimeError(f"Missing env vars: {', '.join(missing)}")
 
-
-# ----------------------- 时间 -----------------------
 today = datetime.now()
 today_date = today.strftime("%Y年%m月%d日")
 
 
 def http_get_json(url: str, params: dict, timeout: int = 15) -> dict:
-    """
-    和风鉴权：通常 query 参数 key=xxx 即可。
-    有些环境也支持 header X-QW-Api-Key，这里一起带上增强兼容性。
-    """
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
-        "X-QW-Api-Key": APP_KEY,
+        "X-QW-Api-Key": APP_KEY,  # 兼容性增强
     }
     resp = requests.get(url, params=params, headers=headers, timeout=timeout)
     if resp.status_code != 200:
