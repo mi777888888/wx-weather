@@ -65,7 +65,7 @@ CITY = clean_env(os.getenv("CITY", "北京"))
 
 # ✅ 固定使用你提供的 API Host（也允许通过 env 覆盖）
 DEFAULT_HOST = "ny65nnwt9x.re.qweatherapi.com"
-QWEATHER_HOST = ensure_https(os.getenv("QWEATHER_HOST", DEFAULT_HOST))
+QWEATHER_HOST = ensure_https(clean_env(os.getenv("QWEATHER_HOST")) or DEFAULT_HOST)
 
 # 必填校验（这里不会再引用未定义变量）
 required = {
