@@ -34,8 +34,9 @@ jobs:
         pip install -r requirements.txt
     - name: Run weather  # 步骤名称，运行天气预报脚本
       run: |  # 运行以下命令
-        python ${{ github.workspace }}/.github/main.py  # 使用完整路径运行脚本
-
+        # python ${{ github.workspace }}/.github/main.py  # 使用完整路径运行脚本
+        python main.py
+        
     env:  # 设置环境变量
       APP_KEY: ${{ secrets.APP_KEY }}  # 从仓库的 secrets 中获取 APP_KEY
       APP_ID: ${{ secrets.APP_ID }}  # 从仓库的 secrets 中获取 APP_ID
