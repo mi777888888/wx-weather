@@ -30,8 +30,8 @@ jobs:
     - name: Install dependencies  # 步骤名称，安装依赖
       run: |  # 运行以下命令
         python -m pip install --upgrade pip  # 升级 pip 到最新版本
-        pip install -r ${{ github.workspace }}/.github/requirements.txt  # 安装所有依赖
-
+        # pip install -r ${{ github.workspace }}/.github/requirements.txt  # 安装所有依赖
+        pip install -r requirements.txt
     - name: Run weather  # 步骤名称，运行天气预报脚本
       run: |  # 运行以下命令
         python ${{ github.workspace }}/.github/main.py  # 使用完整路径运行脚本
