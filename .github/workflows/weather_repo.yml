@@ -1,6 +1,5 @@
 name: wx天气预报推送
-QWEATHER_GEO_HOST: https://geoapi.qweather.com
-QWEATHER_API_HOST: https://devapi.qweather.com
+
 on:
   schedule:
     - cron: '*/5 * * * *'   # GitHub Actions 最短约每5分钟一次
