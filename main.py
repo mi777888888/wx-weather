@@ -73,9 +73,9 @@ required = {
     "APP_KEY": "cb4b121913484d0090d506a70455945e",
     "APP_ID": "wx0b974221d291ec14",
     "APP_SECRET": "066e9c8dedb348c51315ac8499ac8c7a",
-    "USER_IDS": "oJL-12FttD-OPz0dCc_QOR1jk7Gw",
-    "TEMPLATE_ID_DAY": "he0mUm-aBE9UWzUmYzMGPCF_yyuPaD8keP26z7gt6Ho",
-    "TEMPLATE_ID_NIGHT": "8GKqU099P3IdOEkOBa24CgpTFETx3WtwCUrUGDgNJ7Q",
+    "USER_IDS": "oJL-12FttD-OPz0dCc_QOR1jk7Gw;oJL-12GuSaqqMXY0y59TQM5q7hno",
+    "TEMPLATE_ID_DAY": "lFYP7S2i4yeqoY3Ks7TI74DptasWdPyXu6dcSMjqXZA",
+    "TEMPLATE_ID_NIGHT": "tOQVB5vffQIV5OnfGfohJGepzuKq0trrFqoR_Ixj2wE",
 }
 missing = [k for k, v in required.items() if not v]
 if missing:
